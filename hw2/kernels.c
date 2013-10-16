@@ -11,13 +11,13 @@
  * Please fill in the following team struct 
  */
 team_t team = {
-    "TeamName",              /* Team name */
+    "Hello Rotate",              /* Team name */
 
-    "student1",     /* First member full name */
-    "student1@ecf.utoronto.ca",  /* First member email address */
+    "Chi Yeung Jonathan Ng",     /* First member full name */
+    "jonathancy.ng@utoronto.ca",  /* First member email address */
 
-    "",                   /* Second member full name (leave blank if none) */
-    ""                    /* Second member email addr (leave blank if none) */
+    "Michael Law",                   /* Second member full name (leave blank if none) */
+    "m.law@mail.utoronto.ca"                    /* Second member email addr (leave blank if none) */
 };
 
 /***************
