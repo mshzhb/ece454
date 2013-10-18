@@ -1,0 +1,24 @@
+ECE454 Computer Systems Programming
+Homework 2: Memory Performance
+
+Michael Law - 997376343
+Jonathan Ng - 997836141
+
+
+Attempt # - description - CPE
+1 - naive rotate            
+2 - switched write from column-major to row-major - 1.4                
+3 - row-major, with unrolling - 1.4
+4 - row-major, with tiling with T=16 - 2.0
+5 - row-major, tiling with T=32 - 2.2
+6 - row-major, tiling with T=32 and with row-major within tile - 2.7
+7 - row-major, tiling with T=32 row-major, and unrolling of 4 - 2.7
+8 - row-major, tiling with T=32 row-major, and unroll based on dimension size - 2.7
+
+Our optimization was mainly due to reading in column-major and writing in row-major in both the outer loop and the inner tiling loop. Tiling optimization was done with the biggest possible size of T=32, and other slight performance increases were achieved by using loop unrolling and controlling the number of unrolls at certain dimensions of N.
+
+Write with Row Major 
+	Assuming it is a write-back cache, by switching writes to row-major, the writes will land consecutive cache hits from the cache line placed into the cache due to the initial cache miss. This results in a reduced number of cache misses and fewer cache entries from writes compared to the number cache entries from reads. With that in mind, a read that results in a cache miss while the cache is full, will cause previous data to be evicted from the cache. If the data evicted from the cache contains data that needs to be written to memory then that single read does two things: the write to memory and also adding a new cache line into the cache. Since changing column-major to row-major, the miss rate of the writes and reads have changed places. So we have now reduced the overall time of the reads waiting for the cache flush. The speedup shows that it is more costly for cache to miss on reads than on writes. 
+
+Loop Tiling   
+	When the read in column-order adds cache lines into our cache but the entire column does not fit into the cache, then there will be a 100% miss rate. For example, if we only have 512 blocks, then for any size N >512 will have 100% miss rate since at least the very first cache line would have been evicted to make space for any N>512 and then the first element in next iteration will be another cache miss. By partitioning the loop’s iteration space into a smaller block or tiles, we can avoid the 100% miss rate within the tile. The tile size was chosen to be 32 as that is the largest possible tile size that fits into a square size N equal to 64, 96, 128, etc.
