@@ -24,15 +24,15 @@
  ********************************************************/
 team_t team = {
     /* Team name */
-    "",
+    "Super Unicorn",
     /* First member's full name */
-    "",
+    "CHI YEUNG JONATHAN NG",
     /* First member's email address */
-    "",
+    "jonathancy.ng@utoronto.ca",
     /* Second member's full name (leave blank if none) */
-    "",
+    "MICHAEL LAW",
     /* Second member's email address (leave blank if none) */
-    ""
+    "m.law@mail.utoronto.ca"
 };
 
 /*************************************************************************
