@@ -166,13 +166,18 @@ void *extend_heap(size_t words)
 void * find_fit(size_t asize)
 {
     void *bp;
+
+	// step through the heap starting at the top of the heap_listp and increment by a block at a time
     for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
     {
+		// if the current block is not allocated and the size of the block is less than the size
+		// that we want to allocate, then we return this block (first fit algorithm)
         if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
         {
             return bp;
         }
     }
+	// if we get here, that means there were no unallocated blocks of >= asize
     return NULL;
 }
 
@@ -182,11 +187,16 @@ void * find_fit(size_t asize)
  **********************************************************/
 void place(void* bp, size_t asize)
 {
-  /* Get the current block size */
-  size_t bsize = GET_SIZE(HDRP(bp));
+	/* Get the current block size */
 
-  PUT(HDRP(bp), PACK(bsize, 1));
-  PUT(FTRP(bp), PACK(bsize, 1));
+	// currently placed marks the whole block as allocated regardless of how much
+	// we are actually using (asize)
+	size_t bsize = GET_SIZE(HDRP(bp));
+
+	// TODO(jng):instead we should actually make 2 blocks, the block of the size we are allocating
+	// and another that we are leaving as free
+	PUT(HDRP(bp), PACK(bsize, 1));
+	PUT(FTRP(bp), PACK(bsize, 1));
 }
 
 /**********************************************************
@@ -283,5 +293,6 @@ void *mm_realloc(void *ptr, size_t size)
  * Return nonzero if the heap is consistant.
  *********************************************************/
 int mm_check(void){
-  return 1;
+	
+	return 1;
 }
