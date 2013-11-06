@@ -70,6 +70,10 @@ team_t team = {
 /* rounds up to the nearest multiple of ALIGNMENT */
 #define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0xf)
 
+/* print function definitions */
+void print_heap();
+void print_block(void* bp);
+
 void* heap_listp = NULL;
 
 /**********************************************************
@@ -79,15 +83,23 @@ void* heap_listp = NULL;
  **********************************************************/
  int mm_init(void)
  {
-   if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
+	// try to initialize memory to 4*WSIZE first
+	if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1) // out of memory, could not expand heap
          return -1;
-     PUT(heap_listp, 0);                         // alignment padding
-     PUT(heap_listp + (1 * WSIZE), PACK(OVERHEAD, 1));   // prologue header
-     PUT(heap_listp + (2 * WSIZE), PACK(OVERHEAD, 1));   // prologue footer
-     PUT(heap_listp + (3 * WSIZE), PACK(0, 1));    // epilogue header
-     heap_listp += DSIZE;
 
-     return 0;
+	PUT(heap_listp, 0);                         // alignment padding
+	PUT(heap_listp + (1 * WSIZE), PACK(OVERHEAD, 1));   // prologue header
+	PUT(heap_listp + (2 * WSIZE), PACK(OVERHEAD, 1));   // prologue footer
+
+	// epilogue block is an allocated block of size 0
+	PUT(heap_listp + (3 * WSIZE), PACK(0, 1));    // epilogue header
+
+	// move the heap pointer to the payload of the "block" we just initialized
+	heap_listp += DSIZE;
+
+	print_heap();
+	exit(0);
+	return 0;
  }
 
 /**********************************************************
@@ -293,6 +305,34 @@ void *mm_realloc(void *ptr, size_t size)
  * Return nonzero if the heap is consistant.
  *********************************************************/
 int mm_check(void){
-	
+    void *bp;
+
+	// step through the heap starting at the top of the heap_listp and increment by a block at a time
+    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
+    {
+		// print out each heap block
+    }
 	return 1;
+}
+
+/* prints the whole heap */
+void print_heap(){
+    void *bp;
+
+	printf("----------------------------------------------------------\n");
+	// step through the heap starting at the top of the heap_listp and increment by a block at a time
+    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
+    {
+		// print out each heap block
+		print_block(bp);
+    }
+	printf("----------------------------------------------------------\n");
+}
+
+/* prints a single block */
+void print_block(void* bp) {
+	int allocated = GET_ALLOC(HDRP(bp));
+	int size = GET_SIZE(HDRP(bp));
+	printf("%p | allocated: %1lu | size: %6u %x\n",
+			bp, GET_ALLOC(HDRP(bp)), GET_SIZE(HDRP(bp)), GET_SIZE(HDRP(bp)));		
 }
