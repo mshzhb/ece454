@@ -35,6 +35,7 @@ team_t team = {
     "m.law@mail.utoronto.ca"
 };
 
+#define DEBUG 3
 /*************************************************************************
  * Basic Constants and Macros
  * You are not required to use these macros but may find them helpful.
@@ -76,6 +77,7 @@ void print_block(void* bp);
 
 void* heap_listp = NULL;
 
+int mm_init_once = 0;
 /**********************************************************
  * mm_init
  * Initialize the heap, including "allocation" of the
@@ -83,6 +85,15 @@ void* heap_listp = NULL;
  **********************************************************/
  int mm_init(void)
  {
+#if DEBUG >= 2
+    printf("MM_INIT\n");
+    if (mm_init_once) {
+        exit(0);
+    } else {
+        mm_init_once = 1;
+    }
+#endif
+
 	// try to initialize memory to 4*WSIZE first
 	if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1) // out of memory, could not expand heap
          return -1;
@@ -98,7 +109,8 @@ void* heap_listp = NULL;
 	heap_listp += DSIZE;
 
 	print_heap();
-	exit(0);
+	//exit(0);
+
 	return 0;
  }
 
@@ -112,6 +124,10 @@ void* heap_listp = NULL;
  **********************************************************/
 void *coalesce(void *bp)
 {
+#if DEBUG >= 3
+    printf("coalesce");
+#endif
+
     size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp));
@@ -151,6 +167,10 @@ void *coalesce(void *bp)
  **********************************************************/
 void *extend_heap(size_t words)
 {
+#if DEBUG >= 3
+    printf("%zu words ", words);
+#endif
+
     char *bp;
     size_t size;
 
@@ -177,6 +197,10 @@ void *extend_heap(size_t words)
  **********************************************************/
 void * find_fit(size_t asize)
 {
+#if DEBUG >= 3
+    printf("find_fit");
+#endif
+
     void *bp;
 
 	// step through the heap starting at the top of the heap_listp and increment by a block at a time
@@ -199,16 +223,39 @@ void * find_fit(size_t asize)
  **********************************************************/
 void place(void* bp, size_t asize)
 {
+#if DEBUG >= 3
+    printf(" place: \n");
+#endif
 	/* Get the current block size */
 
 	// currently placed marks the whole block as allocated regardless of how much
 	// we are actually using (asize)
-	size_t bsize = GET_SIZE(HDRP(bp));
+    // TODO(jng):instead we should actually make 2 blocks, the block of the size we are allocating
+    // and another that we are leaving as free
 
-	// TODO(jng):instead we should actually make 2 blocks, the block of the size we are allocating
-	// and another that we are leaving as free
-	PUT(HDRP(bp), PACK(bsize, 1));
-	PUT(FTRP(bp), PACK(bsize, 1));
+    // min_size is the smallest free block possible: header(wsize) + 2*WSIZE + footer(wsize)
+    // aligned to DSIZE (2*WSIZE)
+    size_t min_size = DSIZE+OVERHEAD;
+	size_t free_size = GET_SIZE(HDRP(bp));
+
+    size_t bsize = asize;
+    if (free_size >= asize+min_size)
+    {
+        bsize = free_size - asize;
+        printf(" asize %zu", asize);
+        PUT(HDRP(bp), PACK(asize, 1));
+        PUT(FTRP(bp), PACK(asize, 1));
+        void * free_bp = NEXT_BLKP(bp);
+        printf(" bsize %zu \n", bsize);
+        PUT(HDRP(free_bp), PACK(bsize, 0));
+        PUT(FTRP(free_bp), PACK(bsize, 0));
+
+    }
+    else 
+    {
+        PUT(HDRP(bp), PACK(free_size, 1));
+        PUT(FTRP(bp), PACK(free_size, 1));
+    }
 }
 
 /**********************************************************
@@ -217,6 +264,10 @@ void place(void* bp, size_t asize)
  **********************************************************/
 void mm_free(void *bp)
 {
+#if DEBUG >= 3
+    printf("mm_free\n");
+#endif
+
     if(bp == NULL){
       return;
     }
@@ -237,6 +288,11 @@ void mm_free(void *bp)
  **********************************************************/
 void *mm_malloc(size_t size)
 {
+
+#if DEBUG >= 3
+    printf("mm_malloc size: %zu ", size);
+#endif
+
     size_t asize; /* adjusted block size */
     size_t extendsize; /* amount to extend heap if no fit */
     char * bp;
@@ -251,14 +307,21 @@ void *mm_malloc(size_t size)
     else
         asize = DSIZE * ((size + (OVERHEAD) + (DSIZE-1))/ DSIZE);
 
+#if DEBUG >= 3
+    printf(" align to %zu ", asize);
+#endif
+
     /* Search the free list for a fit */
     if ((bp = find_fit(asize)) != NULL) {
+        printf(" success\n");
         place(bp, asize);
         return bp;
     }
-
+    printf(" fail");
     /* No fit found. Get more memory and place the block */
+
     extendsize = MAX(asize, CHUNKSIZE);
+    printf(" extend_heap by %zu B ", extendsize);
     if ((bp = extend_heap(extendsize/WSIZE)) == NULL)
         return NULL;
     place(bp, asize);
@@ -272,6 +335,10 @@ void *mm_malloc(size_t size)
  *********************************************************/
 void *mm_realloc(void *ptr, size_t size)
 {
+#if DEBUG >= 3
+    printf("mm_realloc\n");
+#endif
+
     /* If size == 0 then this is just free, and we return NULL. */
     if (size == 0){
       mm_free(ptr);
@@ -305,6 +372,11 @@ void *mm_realloc(void *ptr, size_t size)
  * Return nonzero if the heap is consistant.
  *********************************************************/
 int mm_check(void){
+
+#if DEBUG >= 3
+    printf("mm_check\n");
+#endif
+
     void *bp;
 
 	// step through the heap starting at the top of the heap_listp and increment by a block at a time
@@ -317,22 +389,37 @@ int mm_check(void){
 
 /* prints the whole heap */
 void print_heap(){
+
+#if DEBUG >= 3
+    printf("print_heap\n");
+#endif
+
     void *bp;
 
 	printf("----------------------------------------------------------\n");
 	// step through the heap starting at the top of the heap_listp and increment by a block at a time
+
+    size_t heap_size = 0;
     for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
     {
 		// print out each heap block
+        heap_size += GET_SIZE(HDRP(bp));
 		print_block(bp);
     }
+
+    printf("Total heap size: %zu words - %zu bytes\n",heap_size, heap_size*WSIZE);
 	printf("----------------------------------------------------------\n");
 }
 
 /* prints a single block */
 void print_block(void* bp) {
-	int allocated = GET_ALLOC(HDRP(bp));
-	int size = GET_SIZE(HDRP(bp));
+#if DEBUG >= 3
+    printf("print_block\n");
+#endif
+
+	//int allocated = GET_ALLOC(HDRP(bp));
+	//int size = GET_SIZE(HDRP(bp));
 	printf("%p | allocated: %1lu | size: %6u %x\n",
 			bp, GET_ALLOC(HDRP(bp)), GET_SIZE(HDRP(bp)), GET_SIZE(HDRP(bp)));		
 }
+
