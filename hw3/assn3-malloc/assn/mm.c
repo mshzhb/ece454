@@ -71,12 +71,31 @@ team_t team = {
 /* rounds up to the nearest multiple of ALIGNMENT */
 #define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0xf)
 
+/* free list macros */
+
+#define PREV(bp)        ((char *)(bp) + WSIZE)
+#define SUCC(bp)        ((char *)(bp) + DSIZE)
+
+#define getNext(bp)     GET(SUCC(bp))
+#define getPrev(bp)     GET(PREV(bp))
+
+#define putNext(bp, dest) PUT(SUCC(bp),dest) 
+#define putPrev(bp, dest) PUT(PREV(bp),dest)
+
+
+
 /* print function definitions */
 void print_heap();
 void print_block(void* bp);
+void * find_fit_free_list(size_t asize);
+void reset_4_mm_init(void);
+void print_free_list();
 
 void* heap_listp = NULL;
+void* flhead = NULL; //free list head pointer
+void* fltail = NULL; //free list tail pointer
 
+int counter = 0;
 int mm_init_once = 0;
 /**********************************************************
  * mm_init
@@ -88,11 +107,12 @@ int mm_init_once = 0;
 #if DEBUG >= 2
     printf("MM_INIT\n");
     if (mm_init_once) {
-        exit(0);
+
     } else {
         mm_init_once = 1;
     }
 #endif
+    reset_4_mm_init();
 
 	// try to initialize memory to 4*WSIZE first
 	if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1) // out of memory, could not expand heap
@@ -108,10 +128,15 @@ int mm_init_once = 0;
 	// move the heap pointer to the payload of the "block" we just initialized
 	heap_listp += DSIZE;
 
-	print_heap();
-	//exit(0);
+	print_heap();  
 
 	return 0;
+ }
+
+ void reset_4_mm_init(void){
+
+    flhead = NULL;
+    fltail = NULL;
  }
 
 /**********************************************************
@@ -125,32 +150,112 @@ int mm_init_once = 0;
 void *coalesce(void *bp)
 {
 #if DEBUG >= 3
-    printf("coalesce");
+    printf("coalesce c\n");
 #endif
 
     size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp));
 
+
+    uintptr_t * prev;
+    uintptr_t * next; 
+    void * fb;
+    printf(" ...\n");
+
+
+/* free list setup*/
     if (prev_alloc && next_alloc) {       /* Case 1 */
+        printf(" case 1\n");
+
+        if (flhead == NULL) {
+            flhead = bp;
+            fltail = bp;
+            printf("flhead set to bp %p\n",bp);
+            getPrev(bp) = NULL;
+            getNext(bp) = NULL;
+
+        }
+        else {   
+            printf("moved to top of list.. bp %p\n",bp);
+            getPrev(flhead) = bp;
+            getNext(bp) = flhead;
+            flhead = bp;
+        }
+        printf("almost done\n");
+        getPrev(bp) = NULL;
+        printf("almost done\n");
+        print_free_list();
+        printf("almost done\n");
         return bp;
     }
 
     else if (prev_alloc && !next_alloc) { /* Case 2 */
+
+        printf("2\n");
+
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         PUT(HDRP(bp), PACK(size, 0));
         PUT(FTRP(bp), PACK(size, 0));
         return (bp);
     }
 
-    else if (!prev_alloc && next_alloc) { /* Case 3 */
+    else if (!prev_alloc && next_alloc) { /* Case 3: a free block on the left*/
+        printf("case 3.. ");
+
+        /*
+        //implicit
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
         PUT(FTRP(bp), PACK(size, 0));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         return (PREV_BLKP(bp));
+        */
+        printf("step0 base case\n");
+
+        /* free list */
+        size += GET_SIZE(HDRP(PREV_BLKP(bp)));
+        printf(" size %zu\n",size);
+        PUT(FTRP(bp), PACK(size, 0));
+        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
+        
+
+        // base case: at fhead there
+        if (flhead == PREV_BLKP(bp)) {
+            return flhead; 
+        }
+
+        // step 1: connect prev and next
+        printf("step1..\n");
+        prev = getPrev(PREV_BLKP(bp));
+        next = getNext(PREV_BLKP(bp));
+
+
+        if (prev != NULL) {
+            printf("prev is not null\n");
+            getNext(prev) = next;
+        }
+
+        if (next != NULL){
+            printf("next is not null\n");
+            getPrev(next) = prev;
+        }   
+
+        // step 2: put newly free block at the front of the list
+        printf("step2..\n");
+        fb = PREV_BLKP(bp);
+        getNext(fb) = flhead;
+        getPrev(flhead) = fb;
+        flhead = fb;
+        getPrev(flhead) = NULL;
+
+        printf("done!\n");
+        return (PREV_BLKP(bp));
+
+
     }
 
-    else {            /* Case 4 */
+    else {            /* Case 4 */ //seg here, did not do yet
+        printf("4\n");
         size += GET_SIZE(HDRP(PREV_BLKP(bp)))  +
             GET_SIZE(FTRP(NEXT_BLKP(bp)))  ;
         PUT(HDRP(PREV_BLKP(bp)), PACK(size,0));
@@ -168,7 +273,7 @@ void *coalesce(void *bp)
 void *extend_heap(size_t words)
 {
 #if DEBUG >= 3
-    printf("%zu words ", words);
+    printf(" %zu words ", words);
 #endif
 
     char *bp;
@@ -183,6 +288,7 @@ void *extend_heap(size_t words)
     PUT(HDRP(bp), PACK(size, 0));                // free block header
     PUT(FTRP(bp), PACK(size, 0));                // free block footer
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));        // new epilogue header
+
 
     /* Coalesce if the previous block was free */
     return coalesce(bp);
@@ -216,6 +322,31 @@ void * find_fit(size_t asize)
 	// if we get here, that means there were no unallocated blocks of >= asize
     return NULL;
 }
+/**********************************************************
+ * find_fit_free_list
+ * Traverse the free list searching for a block to fit asize
+ * Return NULL if no free blocks can handle that size
+ * Assumed that asize is aligned
+ **********************************************************/
+void * find_fit_free_list(size_t asize)
+{
+#if DEBUG >= 3
+    printf("find_fit");
+#endif
+
+    void *bp = flhead;
+    
+    if (bp == NULL) return NULL;
+
+    while (bp!= NULL){
+        if ( asize <= GET_SIZE(HDRP(bp))) 
+        {
+            return bp;
+        }
+        bp = getNext(bp);
+    }
+    return NULL;
+}
 
 /**********************************************************
  * place
@@ -223,15 +354,10 @@ void * find_fit(size_t asize)
  **********************************************************/
 void place(void* bp, size_t asize)
 {
+    print_free_list();
 #if DEBUG >= 3
-    printf(" place: \n");
+    printf(" ==place== \n");
 #endif
-	/* Get the current block size */
-
-	// currently placed marks the whole block as allocated regardless of how much
-	// we are actually using (asize)
-    // TODO(jng):instead we should actually make 2 blocks, the block of the size we are allocating
-    // and another that we are leaving as free
 
     // min_size is the smallest free block possible: header(wsize) + 2*WSIZE + footer(wsize)
     // aligned to DSIZE (2*WSIZE)
@@ -239,23 +365,114 @@ void place(void* bp, size_t asize)
 	size_t free_size = GET_SIZE(HDRP(bp));
 
     size_t bsize = asize;
+    uintptr_t * prev;
+    uintptr_t * next; 
     if (free_size >= asize+min_size)
     {
-        bsize = free_size - asize;
         printf(" asize %zu", asize);
         PUT(HDRP(bp), PACK(asize, 1));
         PUT(FTRP(bp), PACK(asize, 1));
-        void * free_bp = NEXT_BLKP(bp);
+        
+        
+        bsize = free_size - asize;
         printf(" bsize %zu \n", bsize);
+        void * free_bp = NEXT_BLKP(bp);
         PUT(HDRP(free_bp), PACK(bsize, 0));
         PUT(FTRP(free_bp), PACK(bsize, 0));
 
+        printf("breakpointing..");
+        /* free list */
+        if (flhead == fltail) { //one free block
+            printf("breakpoint1\n");
+            flhead = fltail = free_bp;
+            getNext(free_bp) = NULL;
+            getPrev(free_bp) = NULL;
+        }
+        else if (bp == flhead) { //more than one free block and at head
+            printf("breakpoint2\n");
+            prev = getPrev(bp);
+            next = getNext(bp);
+            flhead = free_bp;
+            getPrev(free_bp) = prev;
+            getNext(free_bp) = next; 
+
+            if (prev != NULL ) {
+                getNext(prev) = free_bp;
+            }
+            if (next != NULL) {
+                getPrev(next) = free_bp;
+            }
+
+
+        }
+        else if (bp == fltail) {
+            printf("breakpoint3\n");
+            prev = getPrev(bp);
+            next = getNext(bp);
+            fltail = free_bp;
+            getPrev(free_bp) = prev;
+            getNext(free_bp) = next; 
+
+            if (prev != NULL ) {
+                getNext(prev) = free_bp;
+            }
+            if (next != NULL) {
+                getPrev(next) = free_bp;
+            }
+
+        }
+        else {
+            printf("breakpoint4\n");
+            prev = getPrev(bp);
+            next = getNext(bp);
+            getPrev(free_bp) = prev;
+            getNext(free_bp) = next;
+
+
+            if (prev != NULL ) {
+                getNext(prev) = free_bp;
+            }
+            if (next != NULL) {
+                getPrev(next) = free_bp;
+            }
+        }
+
+
     }
-    else 
+    else  //no need to split
     {
+
+        printf(" case2");
         PUT(HDRP(bp), PACK(free_size, 1));
         PUT(FTRP(bp), PACK(free_size, 1));
+
+        /* free list */
+        
+        if (flhead == fltail) {
+            printf(" 1..\n");    
+            flhead = fltail = NULL;
+        }
+        else if (bp == flhead) {
+            printf(" 2..\n");
+            flhead = getNext(flhead);
+            putPrev(flhead, NULL);
+        }
+        else if (bp == fltail) {
+            printf(" 3..\n");
+            fltail = getPrev(fltail);
+            putNext(fltail,NULL);
+        }
+        else {
+            printf(" 4..");
+            prev = getPrev(bp);
+            next = getNext(bp);
+
+            getNext(prev) = next;
+            getPrev(next) = prev;
+        }
+        printf(" case2 done\n");
     }
+    print_free_list();
 }
 
 /**********************************************************
@@ -264,17 +481,30 @@ void place(void* bp, size_t asize)
  **********************************************************/
 void mm_free(void *bp)
 {
+
 #if DEBUG >= 3
     printf("mm_free\n");
+    addr(bp);
 #endif
+    printf(" list before freeing..\n");
+    print_free_list();
 
     if(bp == NULL){
-      return;
+        printf("null found..");
+        return;
     }
+    printf("1\n");
     size_t size = GET_SIZE(HDRP(bp));
+    printf("2.. size %zu\n", size);
     PUT(HDRP(bp), PACK(size,0));
+    printf("3..\n");
     PUT(FTRP(bp), PACK(size,0));
+    printf("4.. \n");
     coalesce(bp);
+
+    printf("5");
+    printf("list after freeing\n");
+    print_free_list();
 }
 
 
@@ -290,7 +520,8 @@ void *mm_malloc(size_t size)
 {
 
 #if DEBUG >= 3
-    printf("mm_malloc size: %zu ", size);
+
+    printf("%d mm_malloc",counter++);
 #endif
 
     size_t asize; /* adjusted block size */
@@ -308,11 +539,12 @@ void *mm_malloc(size_t size)
         asize = DSIZE * ((size + (OVERHEAD) + (DSIZE-1))/ DSIZE);
 
 #if DEBUG >= 3
-    printf(" align to %zu ", asize);
+    printf(" %zu ", asize);
 #endif
 
     /* Search the free list for a fit */
-    if ((bp = find_fit(asize)) != NULL) {
+        //TODO change find_fit to find_fit_free_list
+    if ((bp = find_fit_free_list(asize)) != NULL) {
         printf(" success\n");
         place(bp, asize);
         return bp;
@@ -397,6 +629,7 @@ void print_heap(){
     void *bp;
 
 	printf("----------------------------------------------------------\n");
+
 	// step through the heap starting at the top of the heap_listp and increment by a block at a time
 
     size_t heap_size = 0;
@@ -419,7 +652,40 @@ void print_block(void* bp) {
 
 	//int allocated = GET_ALLOC(HDRP(bp));
 	//int size = GET_SIZE(HDRP(bp));
-	printf("%p | allocated: %1lu | size: %6u %x\n",
+	printf("%p | allocated: %1lu | size: %6u words\n ",
 			bp, GET_ALLOC(HDRP(bp)), GET_SIZE(HDRP(bp)), GET_SIZE(HDRP(bp)));		
+
 }
+
+void print_free_list () {
+    printf (" print_free_list----------");
+
+    void *bp = flhead;
+
+    if (bp == NULL) {
+        printf(" nothing to print\n");
+        printf ("--------------end of print free list\n");
+        return;
+    }
+
+    while (bp!= NULL){
+
+        size_t size = GET_SIZE(HDRP(bp));
+
+        printf(" size %zu ",size);
+
+        bp = getNext(bp);
+    }
+    printf ("--------------end of print free list\n");
+}
+void addr(void *bp){
+    printf("%p\n", bp );
+}
+
+
+
+
+
+
+
 
