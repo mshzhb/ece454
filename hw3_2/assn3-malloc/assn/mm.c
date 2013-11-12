@@ -1,20 +1,20 @@
 /*
- * This implementation replicates the implicit list implementation
- * provided in the textbook
- * "Computer Systems - A Programmer's Perspective"
- * Blocks are never coalesced or reused.
- * Realloc is implemented directly using mm_malloc and mm_free.
- *
- * NOTE TO STUDENTS: Replace this header comment with your own header
- * comment that gives a high level description of your solution.
+ This solution uses an explicit free list to keep track of the
+ free blocks in the heap as a list of free blocks. With the bulk of
+ the modificiationss to the way it coalesces and places free blocks
+ as allocated, they are briefly described here:
 
+ coalesce
+    the two blocks needed to be coalesced will be removed from the
+    free list. then coalesced together, and placed back into the
+    free list at the very beginning.
+    makes use of rmFromFreeList() and addToFront()
 
-
-
-
-
-
-
+ place
+    place will mark a block as allocated, the block is from the free list.
+    the block is removed from the free list, then checked if it needs 
+    to be split. If it needs to be split. it will split it and place
+    the second free block into the front of the free list.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -82,20 +82,42 @@ team_t team = {
 #define putNext(bp, dest) PUT(SUCC(bp),dest) 
 #define putPrev(bp, dest) PUT(PREV(bp),dest)
 
+
+void print_free_list ();
+void print_block(void* bp);
+void print_heap(void);
+int all_free_block_in_free_list(void);
+int mm_check(void);
+void addToFront(void * bp);
+void rmFromFreeList(void* bp);
+
+/* mm_check helper functions */
+int free_list_marked_as_free (void);
+int find_two_free_blocks (void);
+int all_free_block_in_free_list (void);
+int point_to_valid_free_blocks (void);
+int alloc_block_overlap (void);
+int valid_heap_addr (void);
+
+/* global variables */
 void* heap_listp = NULL;
 void* flhead = NULL; //free list head pointer
 void* fltail = NULL; //free list tail pointer
-
-int counter = 0;
+//int counter = 0;
 
 /**********************************************************
  * mm_init
  * Initialize the heap, including "allocation" of the
  * prologue and epilogue
+ * it will also reset the free list pointers to NULL
+ * to ensure flhead and ftail is not initilized to the 
+ * previous calls to malloc and free
  **********************************************************/
 int mm_init(void)
 {
-    printf("mm_init\n");
+
+    //if (!mm_check()) printf("mm_check failed\n");
+    //printf("mm_init\n");
     if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
         return -1;
     
@@ -108,9 +130,9 @@ int mm_init(void)
     /* reset */
     flhead = NULL; 
     fltail = NULL;
-    counter = 0;
+    //counter = 0;
 
-    print_heap();
+    //print_heap();
     return 0;
 }
 
@@ -118,9 +140,20 @@ int mm_init(void)
  * coalesce
  * Covers the 4 cases discussed in the text:
  * - both neighbours are allocated
+        and also add the free block to the front of the
+        free list
  * - the next block is available for coalescing
+        it will remove the next block from the free list
+        coalesce bp and next block together
+        and place the coalesced block in front of free list
  * - the previous block is available for coalescing
+        it will remove the previous block from the free list
+        coalesce bp and previous block together
+        and place the coalesced block in front of free list
  * - both neighbours are available for coalescing
+        it will remove neighbour blocks from the free list
+        coalesce all three blocks together
+        and place it in front of the free list
  **********************************************************/
 void *coalesce(void *bp)
 {
@@ -181,14 +214,14 @@ void *coalesce(void *bp)
 /**********************************************************
  * rmFromFreeList
  * This function will remove the free block from the free list
+ * it will ensure that prev block and cur block of the bp 
+ * will be linked up
  **********************************************************/
 void rmFromFreeList(void *bp)
 {
     //printf(" rm ");
     if ((getNext(bp) == NULL) && (getPrev(bp)== NULL)){
-        //printf(" 1!!!");
-        //printf("%p %p %p \n", getNext(bp), getPrev(bp), bp);
-        
+        //printf(" 1");
         flhead = NULL;
     }
     else if (bp == flhead && getPrev(bp) == NULL) {
@@ -227,6 +260,8 @@ void rmFromFreeList(void *bp)
 /**********************************************************
  * addToFront
  * This function will add to the front of the free list
+ * it will add the bp to the front of the list and also 
+ * move the front pointer to bp
  **********************************************************/
 void addToFront(void *bp)
 {
@@ -252,6 +287,7 @@ void addToFront(void *bp)
  * Extend the heap by "words" words, maintaining alignment
  * requirements of course. Free the former epilogue block
  * and reallocate its new header
+ * also ensure that bp's previous and next pointers are NULL
  **********************************************************/
 void *extend_heap(size_t words)
 {
@@ -279,26 +315,6 @@ void *extend_heap(size_t words)
 
 
 /**********************************************************
- * find_fit
- * Traverse the heap searching for a block to fit asize
- * Return NULL if no free blocks can handle that size
- * Assumed that asize is aligned
- **********************************************************/
-void * find_fit(size_t asize)
-{
-    //printf("find_fit %zu",asize);
-    void *bp;
-    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
-    {
-        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
-        {
-            return bp;
-        }
-    }
-    return NULL;
-}
-
-/**********************************************************
  * find_fit_free_list
  * Traverse the free list searching for a block to fit asize
  * Return NULL if no free blocks can handle that size
@@ -307,7 +323,6 @@ void * find_fit(size_t asize)
 void * find_fit_free_list(size_t asize)
 {
     //printf("find %zu",asize);
-
     void *bp = flhead;
     
     if (bp == NULL) return NULL;
@@ -324,12 +339,15 @@ void * find_fit_free_list(size_t asize)
 /**********************************************************
  * place
  * Mark the block as allocated
+    place will mark a block from the free list as allocated
+    the block is removed from the free list, then checked if it needs 
+    to be split. If it needs to be split. it will split it and place
+    the second free block into the front of the free list.
  **********************************************************/
 void place(void* bp, size_t asize)
 {
     //print_free_list();
     //printf("---place\n");
-
 
     size_t min_size = DSIZE+DSIZE;
     size_t free_size = GET_SIZE(HDRP(bp));
@@ -368,6 +386,8 @@ void place(void* bp, size_t asize)
 /**********************************************************
  * mm_free
  * Free the block and coalesce with neighbouring blocks
+ * Ensure that the previous and next block pointers are
+ * initialized to NULL for coalescing
  **********************************************************/
 void mm_free(void *bp)
 {
@@ -400,7 +420,6 @@ void *mm_malloc(size_t size)
     //print_free_list();
     //printf("\n%d mm_malloc ",counter++);
     
-
     size_t asize; /* adjusted block size */
     size_t extendsize; /* amount to extend heap if no fit */
     char * bp;
@@ -471,14 +490,83 @@ void *mm_realloc(void *ptr, size_t size)
  * Return nonzero if the heap is consistant.
  *********************************************************/
 int mm_check(void){
-  return 1;
+
+    if (heap_listp == NULL) return 1;
+    int result = 1;
+    result = free_list_marked_as_free();
+    if (!result) return 0;
+    
+    result = find_two_free_blocks();
+    if (!result) return 0;
+    
+    result = all_free_block_in_free_list();
+    if (!result) return 0;
+    
+    result = point_to_valid_free_blocks();
+    if (!result) return 0;
+
+    result = alloc_block_overlap();
+    if (!result) return 0;
+
+    result = valid_heap_addr();
+    if (!result) return 0;
+
+    return result;
 }
 /**********************************************************
- * mm_check_freeblocks
+ * free_list_marked_as_free
+ * check if every free block in the free list is marked
+ * as free
+ *********************************************************/
+int free_list_marked_as_free(void){
+
+    void *bp = flhead;
+
+    if (bp == NULL) {
+        return 1;
+    }
+    size_t size;
+
+    int result = 1;
+    while (bp!= NULL){
+        if( GET_ALLOC(HDRP(bp)) ) result = 0;
+        bp = getNext(bp);
+    }
+    return result;
+
+}
+/**********************************************************
+ * free_list_marked_as_free
+ * check if there are two consecutive free blocks in the
+ * heap
+ * we start at second block and check if previous one is
+ * free, if current block is free
+ *********************************************************/
+int find_two_free_blocks(void){
+
+    void *bp;
+
+    if (heap_listp == NULL) return 1; //no blocks
+    if (NEXT_BLKP(heap_listp) == NULL) return 1; //only one block
+
+    for (bp = NEXT_BLKP(heap_listp); GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
+    {
+        if (!GET_ALLOC(HDRP(bp))) {
+            if (!GET_ALLOC(PREV_BLKP(bp))) {
+                return 0;
+            }
+        }
+    }
+    return 1;
+
+}
+
+/**********************************************************
+ * all_free_block_in_free_list
  * Check if number of free blocks in free list is
  * equal to number of free blocks in heap
  *********************************************************/
-int mm_check_freeblocks(void){
+int all_free_block_in_free_list(void){
     void *bp;
     size_t heap_size = 0;
     int count_heap = 0;
@@ -498,7 +586,73 @@ int mm_check_freeblocks(void){
             bp = getNext(bp);
         }
     }
-    printf(" count_heap: %d count_freelist: %d",count_heap, count_freelist);
+    //printf(" count_heap: %d count_freelist: %d",count_heap, count_freelist);
+    if (count_heap == count_freelist) return 1;
+    return -1;
+}
+
+/**********************************************************
+ * point_to_valid_free_blocks
+ * check if each free block in the free list 
+ * are valid free blocks
+ * we check if the header and footer indiciates free block
+ * and are the same value
+ *********************************************************/
+ int point_to_valid_free_blocks(void){
+    void * bp = flhead;
+    if (bp != NULL) {
+        while (bp!= NULL){
+            if (!GET_ALLOC(HDRP(bp)) != !GET_ALLOC(FTRP(bp))) {
+                return 0;
+            }
+            bp = getNext(bp);
+        }
+    }
+    return 1;
+}
+/**********************************************************
+ * alloc_block_overlap
+ * Check if any two blocks overlap
+ * for each block in the heap, it will check if the previous
+ * block's footer address is greater than current block's
+ * header address 
+ *********************************************************/
+ int alloc_block_overlap(void){
+    void *bp;
+
+
+    if (heap_listp == NULL) return 1; //no blocks
+    if (NEXT_BLKP(heap_listp) == NULL) return 1; //only one block
+
+    for (bp = NEXT_BLKP(heap_listp); GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
+    {
+        if (FTRP(PREV_BLKP(bp)) >= HDRP(bp)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+/**********************************************************
+ * valid_heap_addr
+ * Check if each block addr is a valid heap addr
+ * 
+ *********************************************************/
+ int valid_heap_addr(void){
+
+    void * highestbp = mem_heap_hi();
+    //printf("%p ", highestbp);
+
+    void *bp;
+    if (heap_listp == NULL) return 1; //no blocks
+    if (NEXT_BLKP(heap_listp) == NULL) return 1; //only one block
+
+    for (bp = NEXT_BLKP(heap_listp); GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
+    {
+        if (FTRP(bp) < highestbp ) {
+            //printf("%p\n",FTRP(bp));
+            return 0;
+        }
+    }
     
     return 1;
 }
@@ -526,7 +680,7 @@ void print_heap(){
 
 /**********************************************************
  * print_block
- * print block information
+ * print blocks from the heap
  *********************************************************/
 void print_block(void* bp) {
     printf("%p | allocated: %1lu | size %6u | %6u words | %p\n ",
@@ -555,5 +709,5 @@ void print_free_list () {
         bp = getNext(bp);
     }
     printf("\n----------------------------------------------------------\n");
-    mm_check_freeblocks();
+    all_free_block_in_free_list();
 }
