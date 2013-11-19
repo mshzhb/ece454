@@ -14,15 +14,15 @@
  * Please fill in the following team struct 
  */
 team_t team = {
-    "Team Name",                  /* Team name */
+    "Super Unicorn",             /* Team name */
 
-    "AAA BBB",                    /* First member full name */
-    "9999999999",                 /* First member student number */
-    "AAABBB@CCC",                 /* First member email address */
+    "Michael Law",               /* First member full name */
+    "997376343",                 /* First member student number */
+    "m.law@mail.utoronto.ca",    /* First member email address */
 
-    "",                           /* Second member full name */
-    "",                           /* Second member student number */
-    ""                            /* Second member email address */
+    "Chi Yeung Jonathan Ng",      /* Second member full name */
+    "997836141",                  /* Second member student number */
+    "jonathancy.ng@utoronto.ca"   /* Second member email address */
 };
 
 unsigned num_threads;
@@ -46,6 +46,12 @@ class sample {
 // the element and key value here: element is "class sample" and
 // key value is "unsigned".  
 hash<sample,unsigned> h;
+
+
+
+void * print_message_function(void *ptr);
+
+
 
 int  
 main (int argc, char* argv[]){
@@ -86,7 +92,7 @@ main (int argc, char* argv[]){
 
       // skip a number of samples
       for (k=0; k<samples_to_skip; k++){
-	rnum = rand_r((unsigned int*)&rnum);
+        rnum = rand_r((unsigned int*)&rnum);
       }
 
       // force the sample to be within the range of 0..RAND_NUM_UPPER_BOUND-1
@@ -94,17 +100,43 @@ main (int argc, char* argv[]){
 
       // if this sample has not been counted before
       if (!(s = h.lookup(key))){
-	
-	// insert a new element for it into the hash table
-	s = new sample(key);
-	h.insert(s);
+      	// insert a new element for it into the hash table
+      	s = new sample(key);
+      	h.insert(s);
       }
 
       // increment the count for the sample
       s->count++;
     }
   }
-
   // print a list of the frequency of all samples
   h.print();
+
+
+
+
+  //try out some pthreads here
+  pthread_t thread1, thread2;
+  const char *message1 = "Thread 1";
+  const char *message2 = "Thread 2";
+  int  iret1, iret2;
+
+
+  iret1 = pthread_create( &thread1, NULL, print_message_function, (void*) message1);
+  iret2 = pthread_create( &thread2, NULL, print_message_function, (void*) message2);
+
+  pthread_join(thread1, NULL);
+  pthread_join(thread2, NULL);
+
+  printf("Thread 1 returns: %d\n",iret1);
+  printf("Thread 2 returns: %d\n",iret2);
 }
+
+
+void * print_message_function(void *ptr) {
+  char * message;
+  message = (char *) ptr;
+  printf("%s \n", message);
+}
+
+

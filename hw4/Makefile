@@ -5,7 +5,7 @@ CFLAGS = -O3
 all: randtrack 
 
 randtrack: list.h hash.h defs.h randtrack.cc
-	$(CC) $(CFLAGS) randtrack.cc -o randtrack
+	$(CC) $(CFLAGS) randtrack.cc -o randtrack -lpthread
 
 
 clean:
