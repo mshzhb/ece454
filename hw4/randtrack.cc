@@ -60,7 +60,7 @@ void * process_stream (void *ptr);
 int main (int argc, char* argv[]){
 
   // Print out team information
-  /*
+  
   printf( "Team Name: %s\n", team.team );
   printf( "\n" );
   printf( "Student 1 Name: %s\n", team.name1 );
@@ -71,7 +71,7 @@ int main (int argc, char* argv[]){
   printf( "Student 2 Student Number: %s\n", team.number2 );
   printf( "Student 2 Email: %s\n", team.email2 );
   printf( "\n" );
-  */
+  
 
   // Parse program arguments
   if (argc != 3){
