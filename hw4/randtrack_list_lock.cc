@@ -4,7 +4,7 @@
 #include <pthread.h>
 
 #include "defs.h"
-#include "hash.h"
+#include "hash_list_lock.h"
 
 #define SAMPLES_TO_COLLECT   10000000
 #define RAND_NUM_UPPER_BOUND   100000
@@ -57,7 +57,6 @@ hash<sample,unsigned> h;
 void * process_stream (void *ptr);
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-
 int main (int argc, char* argv[]){
 
   // Print out team information
@@ -84,6 +83,7 @@ int main (int argc, char* argv[]){
 
   // initialize a 16K-entry (2**14) hash of empty lists
   h.setup(14);
+
 
   int start = 0;
   int i, end, incr;
@@ -123,6 +123,7 @@ int main (int argc, char* argv[]){
 
   // print a list of the frequency of all samples
   h.print();
+  h.cleanup();
 
 
 }
@@ -150,8 +151,9 @@ void * process_stream (void *ptr) {
       // force the sample to be within the range of 0..RAND_NUM_UPPER_BOUND-1
       key = rnum % RAND_NUM_UPPER_BOUND;
 
-      //lock critial section
-      pthread_mutex_lock(&mutex);
+      //h.lookup_and_insert_if_absent(key);
+
+      //pthread_mutex_lock(&mutex);
 
       // if this sample has not been counted before
       if (!(s = h.lookup(key))){
@@ -161,11 +163,11 @@ void * process_stream (void *ptr) {
       }
 
       // increment the count for the sample
+      h.lock_list(key);
       s->count++;
-
-      //unlock
-      pthread_mutex_unlock(&mutex);
- 
+      h.unlock_list(key);
+      
+      //pthread_mutex_unlock(&mutex);
     }
   }
 
