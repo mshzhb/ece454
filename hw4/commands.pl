@@ -1,7 +1,7 @@
 my $output = $ARGV[0];
 system("touch " . $output);
 
-my $cmd = "/usr/bin/time -a -o ". $output." ./randtrack 0 50";
+my $cmd = "/usr/bin/time -f '\\t%e' -a -o ". $output." ./randtrack 1 50";
 print ($cmd);
 
 my $MAX_RUNS = 5;
