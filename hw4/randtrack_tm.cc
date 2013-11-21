@@ -122,6 +122,7 @@ int main (int argc, char* argv[]){
 
   // print a list of the frequency of all samples
   h.print();
+  h.cleanup();
 
 
 }
