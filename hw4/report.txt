@@ -63,15 +63,15 @@ Although, impressive performance, we don’t believe this to be a scalable appro
 Each timing measurement is done 5 times and averaged, and displayed below.
 
 <program num_threads samples_to_skip>		<elapsed time (in seconds)>
-randtrack 1 50								17.744
+randtrack 1 50							17.744
 
 randtrank_global_lock 1 50					19.228
 randtrank_global_lock 2 50					14.194
 randtrank_global_lock 4 50					22.010
 
-randtrack_tm 1 50							21.100
-randtrack_tm 2 50							21.298
-randtrack_tm 4 50							13.428
+randtrack_tm 1 50						21.100
+randtrack_tm 2 50						21.298
+randtrack_tm 4 50						13.428
 
 randtrack_list_lock 1 50					20.906
 randtrack_list_lock 2 50					11.222
@@ -90,8 +90,8 @@ overhead for each = runtime with one thread / runtime of single-threaded version
 
 				runtime with 1 thread (in seconds)	overhead
 randtrank_global_lock			19.228				1.084
-randtrank_tm 					21.1				1.189
-randtrank_list_lock				20.906				1.178
+randtrank_tm 				21.1				1.189
+randtrank_list_lock			20.906				1.178
 randtrank_element_lock			19.358				1.091
 
 ------------------------------------------------------------------------------------
@@ -113,19 +113,19 @@ The element lock approach shows a similar trend of performance gain as the list 
 Q11. Repeat the data collection above with samples to skip set to 100 and give the table. How does this change impact the results compared with when set to 50? Why?
 
 <program> <num_threads> <samples_to_skip> 	<elapsed time (in seconds)>
-randtrack 1 100								35.076
+randtrack 1 100						35.076
 
-randtrank_global_lock 1 100					36.67
-randtrank_global_lock 2 100					22.302
-randtrank_global_lock 4 100					20.61
+randtrank_global_lock 1 100				36.67
+randtrank_global_lock 2 100				22.302
+randtrank_global_lock 4 100				20.61
 
-randtrack_tm 1 100							38.106
-randtrack_tm 2 100							29.844
-randtrack_tm 4 100							16.79
+randtrack_tm 1 100					38.106
+randtrack_tm 2 100					29.844
+randtrack_tm 4 100					16.79
 
-randtrack_list_lock 1 100					38.024
-randtrack_list_lock 2 100					19.842
-randtrack_list_lock 4 100					11.252
+randtrack_list_lock 1 100				38.024
+randtrack_list_lock 2 100				19.842
+randtrack_list_lock 4 100				11.252
 
 randtrack_element_lock 1 100				36.414
 randtrack_element_lock 2 100				18.67
