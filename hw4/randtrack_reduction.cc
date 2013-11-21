@@ -46,6 +46,7 @@ class param {
   public:
     int start;
     int end;
+    int thread_num;
 };
 
 // This instantiates an empty hash table
@@ -53,6 +54,7 @@ class param {
 // the element and key value here: element is "class sample" and
 // key value is "unsigned".  
 hash<sample,unsigned> h;
+hash<sample,unsigned> h_local[4];
 
 void * process_stream (void *ptr);
 
@@ -85,7 +87,7 @@ int main (int argc, char* argv[]){
   h.setup(14);
 
   int start = 0;
-  int i, end, incr;
+  int i, end, incr, j;
 
   switch (num_threads) {
     case 1:
@@ -109,8 +111,14 @@ int main (int argc, char* argv[]){
   param *p = new param[num_threads];
 
   for (i=0; i< num_threads; i++){
+    h_local[i].setup(14);
+  }
+
+  for (i=0; i< num_threads; i++){
     p[i].start = start;
     p[i].end = end;
+    p[i].thread_num = i;
+
     pthread_create(&thread[i], NULL, process_stream, (void*) &p[i]);
     start+=incr;
     end+=incr;
@@ -120,8 +128,31 @@ int main (int argc, char* argv[]){
     pthread_join(thread[i],NULL);
   }
 
+  
+  //add h_local[i] to global hash h
+  sample * t;
+  for (i=0; i<num_threads; i++){
+    for (j = 0; j < RAND_NUM_UPPER_BOUND; j++ ) {
+      if ((t = h_local[i].lookup(j))) {
+        sample * u;
+        if (!(u = h.lookup(j))) {
+          u = new sample(j);
+          h.insert(u);
+        }
+        u->count += t->count; 
+      }
+    }
+
+  }
+
   // print a list of the frequency of all samples
   h.print();
+
+
+  //clean up
+  for (i=0; i<num_threads; i++){
+    h_local[i].cleanup();
+  }
   h.cleanup();
 
 
@@ -151,10 +182,10 @@ void * process_stream (void *ptr) {
       key = rnum % RAND_NUM_UPPER_BOUND;
 
       // if this sample has not been counted before
-      if (!(s = h.lookup(key))){
+      if (!(s = h_local[p->thread_num].lookup(key))){
         // insert a new element for it into the hash table
         s = new sample(key);
-        h.insert(s);
+        h_local[p->thread_num].insert(s);
       }
 
       // increment the count for the sample
