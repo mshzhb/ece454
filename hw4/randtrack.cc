@@ -1,7 +1,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
 
 #include "defs.h"
 #include "hash.h"
@@ -15,15 +14,15 @@
  * Please fill in the following team struct 
  */
 team_t team = {
-    "Super Unicorn",             /* Team name */
+    "Team Name",                  /* Team name */
 
-    "Michael Law",               /* First member full name */
-    "997376343",                 /* First member student number */
-    "m.law@mail.utoronto.ca",    /* First member email address */
+    "AAA BBB",                    /* First member full name */
+    "9999999999",                 /* First member student number */
+    "AAABBB@CCC",                 /* First member email address */
 
-    "Chi Yeung Jonathan Ng",      /* Second member full name */
-    "997836141",                  /* Second member student number */
-    "jonathancy.ng@utoronto.ca"   /* Second member email address */
+    "",                           /* Second member full name */
+    "",                           /* Second member student number */
+    ""                            /* Second member email address */
 };
 
 unsigned num_threads;
@@ -42,25 +41,20 @@ class sample {
   void print(FILE *f){printf("%d %d\n",my_key,count);}
 };
 
-class param {
-  public:
-    int start;
-    int end;
-};
-
 // This instantiates an empty hash table
 // it is a C++ template, which means we define the types for
 // the element and key value here: element is "class sample" and
 // key value is "unsigned".  
 hash<sample,unsigned> h;
 
-void * process_stream (void *ptr);
-
-
-int main (int argc, char* argv[]){
+int  
+main (int argc, char* argv[]){
+  int i,j,k;
+  int rnum;
+  unsigned key;
+  sample *s;
 
   // Print out team information
-  
   printf( "Team Name: %s\n", team.team );
   printf( "\n" );
   printf( "Student 1 Name: %s\n", team.name1 );
@@ -71,7 +65,6 @@ int main (int argc, char* argv[]){
   printf( "Student 2 Student Number: %s\n", team.number2 );
   printf( "Student 2 Email: %s\n", team.email2 );
   printf( "\n" );
-  
 
   // Parse program arguments
   if (argc != 3){
@@ -84,59 +77,8 @@ int main (int argc, char* argv[]){
   // initialize a 16K-entry (2**14) hash of empty lists
   h.setup(14);
 
-  int start = 0;
-  int i, end, incr;
-
-  switch (num_threads) {
-    case 1:
-      end = 4;
-      incr = 0;
-      break;
-    case 2:
-      end = 2;
-      incr = 2;
-      break;
-    case 4:
-      end = 1;
-      incr = 1;
-      break;
-    default:
-      return 0;
-      break;
-  }
-
-  pthread_t thread[num_threads];
-  param *p = new param[num_threads];
-
-  for (i=0; i< num_threads; i++){
-    p[i].start = start;
-    p[i].end = end;
-    pthread_create(&thread[i], NULL, process_stream, (void*) &p[i]);
-    start+=incr;
-    end+=incr;
-
-  }
-  for (i=0; i<num_threads; i++){
-    pthread_join(thread[i],NULL);
-  }
-
-  // print a list of the frequency of all samples
-  h.print();
-  h.cleanup();
-
-
-}
-
-
-void * process_stream (void *ptr) {
-
-  param *p = (param*) ptr;
-
-  int i,j,k;
-  int rnum, key;
-  sample * s;
   // process streams starting with different initial numbers
-  for (i=p->start; i<p->end; i++){
+  for (i=0; i<NUM_SEED_STREAMS; i++){
     rnum = i;
 
     // collect a number of samples
@@ -144,7 +86,7 @@ void * process_stream (void *ptr) {
 
       // skip a number of samples
       for (k=0; k<samples_to_skip; k++){
-        rnum = rand_r((unsigned int*)&rnum);
+	rnum = rand_r((unsigned int*)&rnum);
       }
 
       // force the sample to be within the range of 0..RAND_NUM_UPPER_BOUND-1
@@ -152,9 +94,10 @@ void * process_stream (void *ptr) {
 
       // if this sample has not been counted before
       if (!(s = h.lookup(key))){
-        // insert a new element for it into the hash table
-        s = new sample(key);
-        h.insert(s);
+	
+	// insert a new element for it into the hash table
+	s = new sample(key);
+	h.insert(s);
       }
 
       // increment the count for the sample
@@ -162,6 +105,6 @@ void * process_stream (void *ptr) {
     }
   }
 
+  // print a list of the frequency of all samples
+  h.print();
 }
-
-

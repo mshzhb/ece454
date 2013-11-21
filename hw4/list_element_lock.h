@@ -43,6 +43,9 @@ list<Ele,Keytype>::push(Ele *e){
   e->next = my_head;
   my_head = e;
   my_num_ele++;
+
+  //make a mutex for this element...
+  //
 }
 
 template<class Ele, class Keytype> 
@@ -77,6 +80,10 @@ list<Ele,Keytype>::lookup(Keytype the_key){
     e_tmp = e_tmp->next;
   }
   return e_tmp;
+
+  //does lock for this element exist?
+    //if yes, traverse
+    //else, let it traverse and return null?
 }
 
 template<class Ele, class Keytype> 
