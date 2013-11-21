@@ -4,7 +4,7 @@
 #include <pthread.h>
 
 #include "defs.h"
-#include "hash.h"
+#include "hash_element_lock.h"
 
 #define SAMPLES_TO_COLLECT   10000000
 #define RAND_NUM_UPPER_BOUND   100000
@@ -36,10 +36,22 @@ class sample {
  public:
   sample *next;
   unsigned count;
+  pthread_mutex_t mutex;
 
-  sample(unsigned the_key){my_key = the_key; count = 0;};
+  sample(unsigned the_key){
+    my_key = the_key; 
+    count = 0;
+    pthread_mutex_init(&mutex, NULL);
+  };
   unsigned key(){return my_key;}
   void print(FILE *f){printf("%d %d\n",my_key,count);}
+
+  void lock() {
+    pthread_mutex_lock(&mutex);
+  }
+  void unlock() {
+    pthread_mutex_unlock(&mutex);
+  }
 };
 
 class param {
@@ -55,8 +67,6 @@ class param {
 hash<sample,unsigned> h;
 
 void * process_stream (void *ptr);
-
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int main (int argc, char* argv[]){
 
@@ -123,7 +133,7 @@ int main (int argc, char* argv[]){
 
   // print a list of the frequency of all samples
   h.print();
-
+  h.reset();
 
 }
 
@@ -135,6 +145,8 @@ void * process_stream (void *ptr) {
   int i,j,k;
   int rnum, key;
   sample * s;
+  sample ** s_ptr;
+
   // process streams starting with different initial numbers
   for (i=p->start; i<p->end; i++){
     rnum = i;
@@ -150,22 +162,22 @@ void * process_stream (void *ptr) {
       // force the sample to be within the range of 0..RAND_NUM_UPPER_BOUND-1
       key = rnum % RAND_NUM_UPPER_BOUND;
 
-      //lock critial section
-      pthread_mutex_lock(&mutex);
 
       // if this sample has not been counted before
       if (!(s = h.lookup(key))){
         // insert a new element for it into the hash table
         s = new sample(key);
-        h.insert(s);
+        s_ptr = &s;
+        h.insert(s_ptr);
       }
 
       // increment the count for the sample
-      s->count++;
 
-      //unlock
-      pthread_mutex_unlock(&mutex);
- 
+      (*s_ptr)->lock();
+      (*s_ptr)->count++;
+      (*s_ptr)->unlock();
+
+
     }
   }
 
