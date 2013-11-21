@@ -1,4 +1,23 @@
+/**********
+ randtrack_element_lock
 
+  This version of randtrack 
+  -contains a list lock when insert is called
+  -no locking mechanism on the lookup
+  -element locking on the count increment
+
+  With a modification to the call signature of the insert function,
+  we pass in a pointer to a pointer of sample.
+  We avoid the race condition by having a list lock on the insert,
+  doing another lookup within insert,
+  if successful, will do a replacement on the sample ** with the 
+  correct sample obtained from the lookup on the list
+
+  hash_element_lock.h implements this modification of insert() 
+  in the hash class
+
+***********/
+  
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -136,6 +155,7 @@ int main (int argc, char* argv[]){
   h.cleanup();
 
 }
+
 
 
 void * process_stream (void *ptr) {
