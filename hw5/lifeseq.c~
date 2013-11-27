@@ -30,7 +30,6 @@ typedef struct Param {
     int LDA;
     int start_row;
     int end_row;
-    int nrows;
 } Param;
 
 char*
@@ -98,8 +97,6 @@ sequential_game_of_life (char* outboard,
         ptr[i].end_row = end_row;
         start_row = end_row;
         end_row = end_row + chunk_row;
-
-        ptr[i].nrows = nrows;
         ptr[i].ncols = ncols;
         ptr[i].LDA = nrows;
         printf ("%d to %d\n", ptr[i].start_row, ptr[i].end_row);
@@ -134,7 +131,7 @@ void * process (void *ptr) {
     int start_row = p->start_row;
     int end_row = p->end_row;
     int ncols = p->ncols;
-    int nrows = p->nrows;
+    int nrows = end_row;
     char * inboard = p-> inboard;
     char * outboard = p-> outboard;
     int i;
