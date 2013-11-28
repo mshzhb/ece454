@@ -44,9 +44,6 @@ load_dimensions (FILE* input, int* nrows, int* ncols)
     }
 }
 
-//TODO: put the 1/0 bit in instead
-// also store neighbouring counts
-
 static char*
 load_board_values (FILE* input, const int nrows, const int ncols)
 {
@@ -70,7 +67,7 @@ load_board_values (FILE* input, const int nrows, const int ncols)
       else
 	/* ASCII '0' is not zero; do the conversion */
 	board[i] = board[i] - '0';
-	
+	//TODO: put the 1/0 bit in instead
     }
 
   return board;
@@ -81,6 +78,10 @@ load_board (FILE* input, int* nrows, int* ncols)
 {
   load_dimensions (input, nrows, ncols);
   return load_board_values (input, *nrows, *ncols);
+
+    //TODO: don't return load_board_values
+    //store neighbour counts
+    //then return!
 }
 
 

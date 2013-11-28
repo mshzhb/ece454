@@ -82,8 +82,11 @@ sequential_game_of_life (char* outboard,
      * Just be careful when you free() the two boards, so that you don't
      * free the same one twice!!! 
      */
+	
+    //first, set up the neighbour counts within the inboard and outboard    
 
-    int num_threads = 4;
+
+    int num_threads = 1;
     pthread_t thread[num_threads];
     Param *ptr = malloc(num_threads*sizeof(Param));
     
