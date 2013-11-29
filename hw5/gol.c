@@ -142,6 +142,7 @@ main (int argc, char* argv[])
    * Evolve board gens_max ticks, and time the evolution.  You will
    * parallelize the game_of_life() function for this assignment.
    */
+  copy_board (outboard, inboard, nrows, ncols);
   final_board = game_of_life (outboard, inboard, nrows, ncols, gens_max);
 
   /* Print (or save, depending on command-line argument <outfilename>)
