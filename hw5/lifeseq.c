@@ -23,17 +23,14 @@
 
 #define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
 
-#define IS_ALIVE(var) ((var) & (1<<(4))) //check if the 5th bit is set --> alive
-#define IS_CLEAN(var) (!((var) & (1<<(5)))) //if 6th bit is zero --> is clean
+#define IS_ALIVE(var) ((var) & (1<<(4))) 
+#define IS_CLEAN(var) (!((var) & (1<<(5)))) 
 
 #define SET_ALIVE(var)  (var |=  (1 << (4)))
 #define SET_DEAD(var)  (var &= ~(1 << (4))) 
 #define SET_CLEAN(var) (var &= ~(1<<5))
 
 #define SET_DIRTY(var)  (var |=  (1 << (5)))
-
-
-#define TOGGLE_STATE(var) (var ^= 1 << 4)
 
 
 #define INCR_AT(__board, __i, __j )  (__board[(__i) + nrows*(__j)] ++ )
@@ -91,31 +88,6 @@ sequential_game_of_life (char* outboard,
     
     for (curgen = 0; curgen < gens_max; curgen++)
     {
-        /*
-        printf("\n---CURGEN %d\n",curgen);
-        printf("\n---INBOARD\n");
-        for (i = 0; i < nrows; i++)
-        {
-            for (j = 0; j < ncols; j++)
-            {
-                SET_CLEAN(BOARD(inboard,i,j));
-                char cell = BOARD(inboard,i,j);
-                printf("\nat %x ",cell);
-            }
-        }
-        printf("\n---OUTBOARD\n");
-        for (i = 0; i < nrows; i++)
-        {
-            for (j = 0; j < ncols; j++)
-            {
-
-                char cell = BOARD(outboard,i,j);
-                printf("\nat %x ",cell);
-            }
-
-        }
-        */
-
         for (i=0; i<num_threads; i++){
             ptr[i].inboard = inboard;
             ptr[i].outboard = outboard;
@@ -123,40 +95,13 @@ sequential_game_of_life (char* outboard,
             pthread_create(&thread[i], NULL, process, (void*) &ptr[i]);
         }
 
-
         for (i=0; i<num_threads; i++){
             pthread_join(thread[i],NULL);
         }
-
         SWAP_BOARDS( outboard, inboard );
-
     }
 
-/*
-    printf("\n---COMPLETE\n");
-    printf("\n---INBOARD\n");
-    for (i = 0; i < nrows; i++)
-    {
-        for (j = 0; j < ncols; j++)
-        {
-            SET_CLEAN(BOARD(inboard,i,j));
-            char cell = BOARD(inboard,i,j);
-            printf("\nat %x ",cell);
-        }
-    }
-    printf("\n---OUTBOARD\n");
-    for (i = 0; i < nrows; i++)
-    {
-        for (j = 0; j < ncols; j++)
-        {
-            SET_CLEAN(BOARD(outboard,i,j));
-            char cell = BOARD(outboard,i,j);
-            printf("\nat %x ",cell);
-        }
-    }
-*/
-
-    //todo: fix output, shift all to the right >> 4
+    //fix output, shift all to the right >> 4
     for (i = 0; i < nrows; i++)
     {
         for (j = 0; j < ncols; j++)
@@ -169,7 +114,24 @@ sequential_game_of_life (char* outboard,
     return inboard;
 }
 
+/*
+Each cell is represented as a Byte of information
+The Byte of information contains the following:
 
+first 4 bits hold the neighbour_count
+    neighbour_count is the number of neighbours that are alive 
+
+5th bit is the cell's state
+
+6th bit is the clean bit
+    syncronizes neighbour_count incr/decr across the two boards
+
+7th bit is not used and is zero
+
+8th bit is not used and is zero
+
+
+*/
 
 void * process (void *ptr) {
     
@@ -185,25 +147,29 @@ void * process (void *ptr) {
     int j;
     int LDA = p->LDA;
     
-  
+ 
     for (i = start_row; i < end_row; i++)
     {
         for (j = 0; j < ncols; j++)
         {
-            //reset clean bit for inboard for next iteration
+            //set clean bit to zero for inboard to invalidate inboard's neighbour count for next iteration
             SET_CLEAN(BOARD(inboard,i,j));
+
 
             char cell = BOARD(inboard,i,j);
             int alive = cell >> 4;
-            //printf("\nat %x with state %d ",cell, alive);
+            
+            //if cell is dead and has 3 neighbouring cells
             if (!alive) {
-                if (cell == 0x03) {
-                    //printf("YEA! going to be alive!");
+                if (cell == 0x03 ) {
+                    
                     const int inorth = mod (i-1, nrows);
                     const int isouth = mod (i+1, nrows);
                     const int jwest = mod (j-1, ncols);
                     const int jeast = mod (j+1, ncols);
-
+            
+                    //we have to do these if statements first to ensure neighbour_count is accurate in outboard
+                    //if cell is clean, we will set inboard's neighbour_count to outboard's neighbour_count
                     if (IS_CLEAN(BOARD (outboard, inorth, jwest)))
                         BOARD(outboard,inorth, jwest) = TOP_4_BITS(outboard, inorth, jwest) | COUNT_OF_BOARD(inboard, inorth, jwest);
 
@@ -227,10 +193,14 @@ void * process (void *ptr) {
 
                     if (IS_CLEAN(BOARD (outboard, isouth, jeast)))
                         BOARD(outboard,isouth, jeast) = TOP_4_BITS(outboard, isouth, jeast) | COUNT_OF_BOARD(inboard, isouth, jeast);
-
+                    
+                    //set the cell in both boards to the correct state
                     SET_ALIVE(BOARD(outboard,i,j));
                     SET_ALIVE(BOARD(inboard,i,j));
-
+                    
+                    //increment the neighbour_count of outboard
+                    //once process is finished, neighbour_count of outboard
+                    //will represent current accurate neighbour_count
                     INCR_AT (outboard, inorth, jwest);
                     INCR_AT (outboard, inorth, j);
                     INCR_AT (outboard, inorth, jeast);
@@ -248,16 +218,18 @@ void * process (void *ptr) {
                     SET_DIRTY (BOARD(outboard, isouth, jwest));
                     SET_DIRTY (BOARD(outboard, isouth, j));
                     SET_DIRTY (BOARD(outboard, isouth, jeast));
+                      
 
                 }
-            } else if (alive) {
+            } else if (alive) { //if cell is alive and needs to die
                 if (cell <= 0x11 || cell >=0x14) {
-                    //printf("FOUND A LIFE GONNA DIE");
+             
                     const int inorth = mod (i-1, nrows);
                     const int isouth = mod (i+1, nrows);
                     const int jwest = mod (j-1, ncols);
                     const int jeast = mod (j+1, ncols);
-
+                
+                    
                     if (IS_CLEAN(BOARD (outboard, inorth, jwest)))
                         BOARD(outboard,inorth, jwest) = TOP_4_BITS(outboard, inorth, jwest) | COUNT_OF_BOARD(inboard, inorth, jwest);
 
@@ -293,7 +265,8 @@ void * process (void *ptr) {
                     DECR_AT (outboard, isouth, jwest);
                     DECR_AT (outboard, isouth, j);
                     DECR_AT (outboard, isouth, jeast);
-                    
+
+                   
                     SET_DIRTY (BOARD(outboard, inorth, jwest));
                     SET_DIRTY (BOARD(outboard, inorth, j));
                     SET_DIRTY (BOARD(outboard, inorth, jeast));
@@ -303,20 +276,20 @@ void * process (void *ptr) {
                     SET_DIRTY (BOARD(outboard, isouth, j));
                     SET_DIRTY (BOARD(outboard, isouth, jeast));
                     
-
+                    
                 }
             }
 
-
-            if (IS_CLEAN(BOARD (outboard, i, j))) 
-                BOARD(outboard,i, j) = TOP_4_BITS(inboard, i, j) | COUNT_OF_BOARD(inboard, i, j);
-            SET_DIRTY (BOARD(outboard, i, j));
-
-
-
+            //if current cell does not need to be updated
+            //we simply update outboard's with inboard's information
+            if (IS_CLEAN(BOARD (outboard, i, j))) {
+                BOARD(outboard,i, j) = BOARD(inboard, i, j);
+                SET_DIRTY (BOARD(outboard, i, j));
+            }
 
         }
     }
+
 
 }
 
