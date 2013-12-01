@@ -173,9 +173,9 @@ void * process (void *ptr) {
     int LDA = p->LDA;
     
   
-    for (j = 0; j < ncols; j++)
+    for (i = start_row; i < end_row; i++)
     {
-        for (i = start_row; i < end_row; i++)
+        for (j = 0; j < ncols; j++)
         {
             //set clean bit to zero for inboard to invalidate inboard's neighbour count for next iteration
             SET_CLEAN(BOARD(inboard,i,j));
