@@ -1,1 +1,3 @@
-initboard 32 32 > inputs/32.pbm
+make clean
+make
+./gol $1 $2 $3
