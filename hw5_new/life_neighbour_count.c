@@ -1,10 +1,13 @@
 /*****************************************************************************
  life_neighbour_count.c
-Each cell is represented as a Byte of information
+
+
+--- Cell Information ---
+Each cell is represented  Byte of information
 The Byte of information contains the following:
 first 4 bits hold the neighbour_count
     neighbour_count is the number of neighbours that are alive 
-5th bit is the cell's state
+5th bit is the cell's state (1 or 0)
 6th bit is the clean bit
     syncronizes neighbour_count incr/decr across the two boards
 7th bit is not used and is zero
@@ -42,12 +45,14 @@ first 4 bits hold the neighbour_count
 
 #define INCR_AT(__board, __i, __j )  (__board[(__i) + nrows*(__j)] ++ )
 #define DECR_AT(__board, __i, __j )  (__board[(__i) + nrows*(__j)] -- )
-#define COUNT_OF_BOARD(__board, __i, __j )  (__board[(__i) + nrows*(__j)] & 0x0f  )
-#define TOP_4_BITS(__board, __i, __j )  (__board[(__i) + nrows*(__j)] & 0xf0  )
+#define COUNT_OF_BOARD(__board, __i, __j )  (__board[(__i) + nrows*(__j)] & (char)0x0f  )
+#define TOP_4_BITS(__board, __i, __j )  (__board[(__i) + nrows*(__j)] & (char)0x30  )
 
 void incr_neighbours2(char * board, int index, int nrows, int ncols);
 void * process (void *ptr);
 void  process_single_row (int i, int ncols, int nrows, char * inboard, char * outboard, int LDA);
+
+void func(char * c);
 
 typedef struct Param {
     char * inboard;
@@ -84,6 +89,9 @@ nc_game_of_life (char* outboard,
         
         ptr[i].start_row = start_row+1;
         ptr[i].end_row = end_row-1;
+        //ptr[i].start_row = start_row;
+        //ptr[i].end_row = end_row;
+        
         start_row = end_row;
         end_row = end_row + chunk_row;
 
@@ -98,10 +106,13 @@ nc_game_of_life (char* outboard,
     {
         //we have to process the first and last row of each chunk without parallelization
         //to avoid threads writing to the same neighbouring threads
+        
+        
         for (i=0; i<num_threads; i++){
             process_single_row( ptr[i].start_row-1 , ncols, nrows, inboard, outboard, LDA);
-            process_single_row( ptr[i].end_row+1 , ncols, nrows, inboard, outboard, LDA);
+            process_single_row( ptr[i].end_row , ncols, nrows, inboard, outboard, LDA);
         }
+        
 
         for (i=0; i<num_threads; i++){
             ptr[i].inboard = inboard;
@@ -125,7 +136,24 @@ nc_game_of_life (char* outboard,
         }
     }
     free(ptr);
+
+
+
+/*
+
+    char * c = malloc(1 * sizeof (char));
+    c[0]='a';
+    printf("1c is now %c\n",c[0]);
+    func(c);
+    printf("2c is now %c\n",c[0]);
+    free(c);
+*/
     return inboard;
+
+}
+
+void func(char * c){
+    c[0]='b';
 }
 
 
@@ -158,7 +186,7 @@ void * process (void *ptr) {
             
             //if cell is dead and has 3 neighbouring cells
             if (!alive) {
-                if (cell == 0x03 ) {
+                if (cell == (char)0x03 ) {
                     
                     const int inorth = mod (i-1, nrows);
                     const int isouth = mod (i+1, nrows);
@@ -219,7 +247,7 @@ void * process (void *ptr) {
 
                 }
             } else if (alive) { //if cell is alive and needs to die
-                if (cell <= 0x11 || cell >=0x14) {
+                if (cell <= (char)0x11 || cell >= (char)0x14) {
              
                     const int inorth = mod (i-1, nrows);
                     const int isouth = mod (i+1, nrows);
@@ -306,7 +334,7 @@ void  process_single_row (int i, int ncols, int nrows, char * inboard, char * ou
         
         //if cell is dead and has 3 neighbouring cells
         if (!alive) {
-            if (cell == 0x03 ) {
+            if (cell == (char)0x03 ) {
                 
                 const int inorth = mod (i-1, nrows);
                 const int isouth = mod (i+1, nrows);
@@ -367,7 +395,7 @@ void  process_single_row (int i, int ncols, int nrows, char * inboard, char * ou
 
             }
         } else if (alive) { //if cell is alive and needs to die
-            if (cell <= 0x11 || cell >=0x14) {
+            if (cell <= (char)0x11 || cell >= (char)0x14) {
          
                 const int inorth = mod (i-1, nrows);
                 const int isouth = mod (i+1, nrows);
