@@ -172,7 +172,7 @@ void * process (void *ptr) {
     int j;
     int LDA = p->LDA;
     
- 
+  
     for (i = start_row; i < end_row; i++)
     {
         for (j = 0; j < ncols; j++)
