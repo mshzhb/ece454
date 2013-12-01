@@ -155,6 +155,155 @@ void * process (void *ptr) {
     int j;
     int LDA = p->LDA;
     
+    //tiling
+    int T=32;
+    int x,y;
+    for (x=0; x<ncols; x+=T) {
+        for (y=start_row; y<end_row; y+=T) {
+            for (j=y; j< y+T ; j++){
+                for (i = x; i< x+T; i++) {
+
+                    //set clean bit to zero for inboard to invalidate inboard's neighbour count for next iteration
+                    SET_CLEAN(BOARD(inboard,i,j));
+
+
+                    char cell = BOARD(inboard,i,j);
+                    int alive = cell >> 4;
+                    
+                    //if cell is dead and has 3 neighbouring cells
+                    if (!alive) {
+                        if (cell == (char)0x03 ) {
+                            
+                            const int inorth = mod (i-1, nrows);
+                            const int isouth = mod (i+1, nrows);
+                            const int jwest = mod (j-1, ncols);
+                            const int jeast = mod (j+1, ncols);
+                    
+                            //we have to do these if statements first to ensure neighbour_count is accurate in outboard
+                            //if cell is clean, we will set inboard's neighbour_count to outboard's neighbour_count
+                            if (IS_CLEAN(BOARD (outboard, inorth, jwest)))
+                                BOARD(outboard,inorth, jwest) = TOP_4_BITS(outboard, inorth, jwest) | COUNT_OF_BOARD(inboard, inorth, jwest);
+
+                            if (IS_CLEAN(BOARD (outboard, inorth, j)))
+                                BOARD(outboard,inorth, j) = TOP_4_BITS(outboard, inorth, j) | COUNT_OF_BOARD(inboard, inorth, j);
+
+                            if (IS_CLEAN(BOARD (outboard, inorth, jeast)))
+                                BOARD(outboard,inorth, jeast) = TOP_4_BITS(outboard, inorth, jeast) | COUNT_OF_BOARD(inboard, inorth, jeast);
+
+                            if (IS_CLEAN(BOARD (outboard, i, jwest)))
+                                BOARD(outboard,i, jwest) = TOP_4_BITS(outboard, i, jwest) | COUNT_OF_BOARD(inboard, i, jwest);
+
+                            if (IS_CLEAN(BOARD (outboard, i, jeast)))
+                                BOARD(outboard,i, jeast) = TOP_4_BITS(outboard, i, jeast) | COUNT_OF_BOARD(inboard, i, jeast);
+
+                            if (IS_CLEAN(BOARD (outboard, isouth, jwest)))
+                                BOARD(outboard,isouth, jwest) = TOP_4_BITS(outboard, isouth, jwest) | COUNT_OF_BOARD(inboard, isouth, jwest);
+
+                            if (IS_CLEAN(BOARD (outboard, isouth, j)))
+                                BOARD(outboard, isouth, j) = TOP_4_BITS(outboard, isouth, j) | COUNT_OF_BOARD(inboard, isouth, j);
+
+                            if (IS_CLEAN(BOARD (outboard, isouth, jeast)))
+                                BOARD(outboard,isouth, jeast) = TOP_4_BITS(outboard, isouth, jeast) | COUNT_OF_BOARD(inboard, isouth, jeast);
+                            
+                            //set the cell in both boards to the correct state
+                            SET_ALIVE(BOARD(outboard,i,j));
+                            SET_ALIVE(BOARD(inboard,i,j));
+                            
+                            //increment the neighbour_count of outboard
+                            //once process is finished, neighbour_count of outboard
+                            //will represent current accurate neighbour_count
+                            INCR_AT (outboard, inorth, jwest);
+                            INCR_AT (outboard, inorth, j);
+                            INCR_AT (outboard, inorth, jeast);
+                            INCR_AT (outboard, i, jwest);
+                            INCR_AT (outboard, i, jeast);
+                            INCR_AT (outboard, isouth, jwest);
+                            INCR_AT (outboard, isouth, j);
+                            INCR_AT (outboard, isouth, jeast);
+                            
+                            SET_DIRTY (BOARD(outboard, inorth, jwest));
+                            SET_DIRTY (BOARD(outboard, inorth, j));
+                            SET_DIRTY (BOARD(outboard, inorth, jeast));
+                            SET_DIRTY (BOARD(outboard, i, jwest));
+                            SET_DIRTY (BOARD(outboard, i, jeast));
+                            SET_DIRTY (BOARD(outboard, isouth, jwest));
+                            SET_DIRTY (BOARD(outboard, isouth, j));
+                            SET_DIRTY (BOARD(outboard, isouth, jeast));
+                              
+
+                        }
+                    } else if (alive) { //if cell is alive and needs to die
+                        if (cell <= (char)0x11 || cell >= (char)0x14) {
+                     
+                            const int inorth = mod (i-1, nrows);
+                            const int isouth = mod (i+1, nrows);
+                            const int jwest = mod (j-1, ncols);
+                            const int jeast = mod (j+1, ncols);
+                        
+                            
+                            if (IS_CLEAN(BOARD (outboard, inorth, jwest)))
+                                BOARD(outboard,inorth, jwest) = TOP_4_BITS(outboard, inorth, jwest) | COUNT_OF_BOARD(inboard, inorth, jwest);
+
+                            if (IS_CLEAN(BOARD (outboard, inorth, j)))
+                                BOARD(outboard,inorth, j) = TOP_4_BITS(outboard, inorth, j) | COUNT_OF_BOARD(inboard, inorth, j);
+
+                            if (IS_CLEAN(BOARD (outboard, inorth, jeast)))
+                                BOARD(outboard,inorth, jeast) = TOP_4_BITS(outboard, inorth, jeast) | COUNT_OF_BOARD(inboard, inorth, jeast);
+
+                            if (IS_CLEAN(BOARD (outboard, i, jwest)))
+                                BOARD(outboard,i, jwest) = TOP_4_BITS(outboard, i, jwest) | COUNT_OF_BOARD(inboard, i, jwest);
+
+                            if (IS_CLEAN(BOARD (outboard, i, jeast)))
+                                BOARD(outboard,i, jeast) = TOP_4_BITS(outboard, i, jeast) | COUNT_OF_BOARD(inboard, i, jeast);
+
+                            if (IS_CLEAN(BOARD (outboard, isouth, jwest)))
+                                BOARD(outboard,isouth, jwest) = TOP_4_BITS(outboard, isouth, jwest) | COUNT_OF_BOARD(inboard, isouth, jwest);
+
+                            if (IS_CLEAN(BOARD (outboard, isouth, j)))
+                                BOARD(outboard, isouth, j) = TOP_4_BITS(outboard, isouth, j) | COUNT_OF_BOARD(inboard, isouth, j);
+
+                            if (IS_CLEAN(BOARD (outboard, isouth, jeast)))
+                                BOARD(outboard,isouth, jeast) = TOP_4_BITS(outboard, isouth, jeast) | COUNT_OF_BOARD(inboard, isouth, jeast);
+
+                            SET_DEAD(BOARD(outboard,i,j));
+                            SET_DEAD(BOARD(inboard,i,j));
+
+                            DECR_AT (outboard, inorth, jwest);
+                            DECR_AT (outboard, inorth, j);
+                            DECR_AT (outboard, inorth, jeast);
+                            DECR_AT (outboard, i, jwest);
+                            DECR_AT (outboard, i, jeast);
+                            DECR_AT (outboard, isouth, jwest);
+                            DECR_AT (outboard, isouth, j);
+                            DECR_AT (outboard, isouth, jeast);
+
+                           
+                            SET_DIRTY (BOARD(outboard, inorth, jwest));
+                            SET_DIRTY (BOARD(outboard, inorth, j));
+                            SET_DIRTY (BOARD(outboard, inorth, jeast));
+                            SET_DIRTY (BOARD(outboard, i, jwest));
+                            SET_DIRTY (BOARD(outboard, i, jeast));
+                            SET_DIRTY (BOARD(outboard, isouth, jwest));
+                            SET_DIRTY (BOARD(outboard, isouth, j));
+                            SET_DIRTY (BOARD(outboard, isouth, jeast));
+                            
+                            
+                        }
+                    }
+
+                    //if current cell does not need to be updated
+                    //we simply update outboard's with inboard's information
+                    if (IS_CLEAN(BOARD (outboard, i, j))) {
+                        BOARD(outboard,i, j) = BOARD(inboard, i, j);
+                        SET_DIRTY (BOARD(outboard, i, j));
+                    }
+                }
+            }
+        }
+    }
+    
+
+    /*
     //reading inboard with column-major
     for (j = 0; j < ncols; j++)
     {
@@ -297,6 +446,7 @@ void * process (void *ptr) {
 
         }
     }
+    */
 
 }
 
