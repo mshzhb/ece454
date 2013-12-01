@@ -52,7 +52,6 @@ void incr_neighbours2(char * board, int index, int nrows, int ncols);
 void * process (void *ptr);
 void  process_single_row (int i, int ncols, int nrows, char * inboard, char * outboard, int LDA);
 
-void func(char * c);
 
 typedef struct Param {
     char * inboard;
@@ -137,25 +136,9 @@ nc_game_of_life (char* outboard,
     }
     free(ptr);
 
-
-
-/*
-
-    char * c = malloc(1 * sizeof (char));
-    c[0]='a';
-    printf("1c is now %c\n",c[0]);
-    func(c);
-    printf("2c is now %c\n",c[0]);
-    free(c);
-*/
     return inboard;
 
 }
-
-void func(char * c){
-    c[0]='b';
-}
-
 
 
 void * process (void *ptr) {
@@ -172,7 +155,7 @@ void * process (void *ptr) {
     int j;
     int LDA = p->LDA;
     
-  
+    //reading inboard with column-major
     for (j = 0; j < ncols; j++)
     {
         for (i = start_row; i < end_row; i++)
