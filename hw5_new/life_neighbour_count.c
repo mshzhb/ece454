@@ -1,17 +1,31 @@
 /*****************************************************************************
  life_neighbour_count.c
 
+Michael Law - 997376343
+Jonathan Ng - 997836141
 
---- Cell Information ---
-Each cell is represented  Byte of information
-The Byte of information contains the following:
-first 4 bits hold the neighbour_count
+
+The following describes the main optimization methods used in nc_game_of_life()
+Extra information is stored within the cell to make use of 
+as much memory as possible and parallelization allows the board to 
+be processed much faster at each iteration.
+
+---- Neighbour-Count Cell Representation ----
+Each cell state is contained within a byte of information
+0th, 1st, 2nd, 3rd bit holds the neighbour_count
     neighbour_count is the number of neighbours that are alive 
-5th bit is the cell's state (1 or 0)
-6th bit is the clean bit
+4th bit is the cell's state (1 or 0)
+5th bit is the clean bit
     syncronizes neighbour_count incr/decr across the two boards
+6th bit is not used and is zero
 7th bit is not used and is zero
-8th bit is not used and is zero
+
+---- Parallelization with pthreads ----
+Each thread takes processes a rectangular chunk of the board
+and waits for every other thread to finish before moving onto
+the next iteration of curgen
+
+
  ****************************************************************************/
 #include "life.h"
 #include "util.h"
@@ -31,28 +45,34 @@ first 4 bits hold the neighbour_count
 
 #define BOARD( __board, __i, __j )  (__board[(__i) + LDA*(__j)])
 
-#define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
-
+//check if cell is alive/dead
 #define IS_ALIVE(var) ((var) & (1<<(4))) 
 #define IS_CLEAN(var) (!((var) & (1<<(5)))) 
 
+//set cell states
 #define SET_ALIVE(var)  (var |=  (1 << (4)))
 #define SET_DEAD(var)  (var &= ~(1 << (4))) 
 #define SET_CLEAN(var) (var &= ~(1<<5))
-
 #define SET_DIRTY(var)  (var |=  (1 << (5)))
 
-
+//increase or decrease neighbour counts
 #define INCR_AT(__board, __i, __j )  (__board[(__i) + nrows*(__j)] ++ )
 #define DECR_AT(__board, __i, __j )  (__board[(__i) + nrows*(__j)] -- )
+
+//return the neighbour_count of the cell
 #define COUNT_OF_BOARD(__board, __i, __j )  (__board[(__i) + nrows*(__j)] & (char)0x0f  )
+
+//return the clean and state bits of the cell
 #define TOP_4_BITS(__board, __i, __j )  (__board[(__i) + nrows*(__j)] & (char)0x30  )
 
-void incr_neighbours2(char * board, int index, int nrows, int ncols);
+
 void * process (void *ptr);
 void  process_single_row (int i, int ncols, int nrows, char * inboard, char * outboard, int LDA);
 
-
+/********************************
+Param
+This struct is used to pass information to threads
+********************************/
 typedef struct Param {
     char * inboard;
     char * outboard;
@@ -63,6 +83,11 @@ typedef struct Param {
     int nrows;
 } Param;
 
+/********************************
+nc_game_of_life
+main function that drives game of life
+using neighbour_count implementation
+********************************/
 char*
 nc_game_of_life (char* outboard, 
         char* inboard,
@@ -76,7 +101,7 @@ nc_game_of_life (char* outboard,
     const int LDA = nrows;
     int curgen, i, j;
 
-
+    //parallelization setup
     int num_threads = 4;
     pthread_t thread[num_threads];
     Param *ptr = malloc(num_threads*sizeof(Param));
@@ -85,13 +110,11 @@ nc_game_of_life (char* outboard,
     int chunk_row = nrows/num_threads;
     int end_row = chunk_row;
     
-    //set up param for threads
+    //set up inputs for threads
     for (i=0; i<num_threads; i++){
         
         ptr[i].start_row = start_row+1;
         ptr[i].end_row = end_row-1;
-        //ptr[i].start_row = start_row;
-        //ptr[i].end_row = end_row;
         
         start_row = end_row;
         end_row = end_row + chunk_row;
@@ -99,22 +122,23 @@ nc_game_of_life (char* outboard,
         ptr[i].nrows = nrows;
         ptr[i].ncols = ncols;
         ptr[i].LDA = nrows;
-        //printf ("%d to %d\n", ptr[i].start_row, ptr[i].end_row);
     }
     
-
+    //begin generations of game of life
+    /*
+        First, we have to process the first and last row of each chunk 
+        without parallelization to avoid threads writing to the same neighbouring cells.
+        Then, we can parallelize and let the main thread wait for the 4 threads before
+        the next iteration of Game of Life
+    */
     for (curgen = 0; curgen < gens_max; curgen++)
     {
-        //we have to process the first and last row of each chunk without parallelization
-        //to avoid threads writing to the same neighbouring threads
-        
         
         for (i=0; i<num_threads; i++){
             process_single_row( ptr[i].start_row-1 , ncols, nrows, inboard, outboard, LDA);
             process_single_row( ptr[i].end_row , ncols, nrows, inboard, outboard, LDA);
         }
         
-
         for (i=0; i<num_threads; i++){
             ptr[i].inboard = inboard;
             ptr[i].outboard = outboard;
@@ -127,7 +151,10 @@ nc_game_of_life (char* outboard,
         SWAP_BOARDS( outboard, inboard );
     }
 
-    //fix output, shift all to the right >> 4
+    /*
+        We fix the output for saving by clearing up the clean bit
+        and shifting the cell state to the first bit
+    */
     for (i = 0; i < nrows; i++)
     {
         for (j = 0; j < ncols; j++)
@@ -136,12 +163,20 @@ nc_game_of_life (char* outboard,
             BOARD(inboard,i,j) = BOARD(inboard,i,j) >> 4;
         }
     }
+
     free(ptr);
 
     return inboard;
 
 }
 
+/********************************
+process
+threads will run process() to update the cell's state
+the cell's state is updated according to the neighbour_count
+if a cell state needs to be changed, we will update the neighbouring cell's
+neighbour_count to reflect the new neighbour count in outboard
+********************************/
 
 void * process (void *ptr) {
     
@@ -157,8 +192,6 @@ void * process (void *ptr) {
     int j;
     int LDA = p->LDA;
     
-   
-  //  /*
     //reading inboard with column-major
     for (j = 0; j < ncols; j++)
     {
@@ -278,7 +311,6 @@ void * process (void *ptr) {
                     DECR_AT (outboard, isouth, j);
                     DECR_AT (outboard, isouth, jeast);
 
-                   
                     SET_DIRTY (BOARD(outboard, inorth, jwest));
                     SET_DIRTY (BOARD(outboard, inorth, j));
                     SET_DIRTY (BOARD(outboard, inorth, jeast));
@@ -301,14 +333,17 @@ void * process (void *ptr) {
 
         }
     }
-   // */
 
 }
 
 
-
-
-void  process_single_row (int i, int ncols, int nrows, char * inboard, char * outboard, int LDA) {
+/********************************
+process_single_row
+process the given row, i, from inboard, and stores the results in outboard.
+this function is used to avoid a race case condition 
+where the pthreads access the same neighbouring cell.
+********************************/
+void process_single_row (int i, int ncols, int nrows, char * inboard, char * outboard, int LDA) {
     
     int j;
     for (j = 0; j < ncols; j++)
