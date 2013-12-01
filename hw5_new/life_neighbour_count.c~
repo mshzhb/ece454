@@ -70,7 +70,7 @@ nc_game_of_life (char* outboard,
         const int ncols,
         const int gens_max)
 {
-    //exiting gracefully if size of board exceeds 10000
+
     if (nrows > 10000) return inboard;
 
     const int LDA = nrows;
