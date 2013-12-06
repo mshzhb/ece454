@@ -63,7 +63,7 @@ sequential_game_of_life (char* outboard,
     int curgen, i, j;
 
 
-    int num_threads = 1;
+    int num_threads = 4;
     pthread_t thread[num_threads];
     Param *ptr = malloc(num_threads*sizeof(Param));
     
@@ -110,6 +110,7 @@ sequential_game_of_life (char* outboard,
             BOARD(inboard,i,j) = BOARD(inboard,i,j) >> 4;
         }
     }
+	free(ptr);
 
     return inboard;
 }

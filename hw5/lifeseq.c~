@@ -63,7 +63,7 @@ sequential_game_of_life (char* outboard,
     int curgen, i, j;
 
 
-    int num_threads = 1;
+    int num_threads = 4;
     pthread_t thread[num_threads];
     Param *ptr = malloc(num_threads*sizeof(Param));
     
@@ -110,6 +110,8 @@ sequential_game_of_life (char* outboard,
             BOARD(inboard,i,j) = BOARD(inboard,i,j) >> 4;
         }
     }
+
+
 
     return inboard;
 }
@@ -202,23 +204,14 @@ void * process (void *ptr) {
                     //once process is finished, neighbour_count of outboard
                     //will represent current accurate neighbour_count
                     INCR_AT (outboard, inorth, jwest);
-                    SET_DIRTY (BOARD(outboard, inorth, jwest));
                     INCR_AT (outboard, inorth, j);
-                    SET_DIRTY (BOARD(outboard, inorth, j));
                     INCR_AT (outboard, inorth, jeast);
-                    SET_DIRTY (BOARD(outboard, inorth, jeast));
                     INCR_AT (outboard, i, jwest);
-                    SET_DIRTY (BOARD(outboard, i, jwest));
                     INCR_AT (outboard, i, jeast);
-                    SET_DIRTY (BOARD(outboard, i, jeast));
                     INCR_AT (outboard, isouth, jwest);
-                    SET_DIRTY (BOARD(outboard, isouth, jwest));
                     INCR_AT (outboard, isouth, j);
-                    SET_DIRTY (BOARD(outboard, isouth, j));
                     INCR_AT (outboard, isouth, jeast);
-                    SET_DIRTY (BOARD(outboard, isouth, jeast));
                     
-                    /*
                     SET_DIRTY (BOARD(outboard, inorth, jwest));
                     SET_DIRTY (BOARD(outboard, inorth, j));
                     SET_DIRTY (BOARD(outboard, inorth, jeast));
@@ -227,7 +220,7 @@ void * process (void *ptr) {
                     SET_DIRTY (BOARD(outboard, isouth, jwest));
                     SET_DIRTY (BOARD(outboard, isouth, j));
                     SET_DIRTY (BOARD(outboard, isouth, jeast));
-                      */
+                      
 
                 }
             } else if (alive) { //if cell is alive and needs to die
@@ -267,23 +260,15 @@ void * process (void *ptr) {
                     SET_DEAD(BOARD(inboard,i,j));
 
                     DECR_AT (outboard, inorth, jwest);
-                    SET_DIRTY (BOARD(outboard, inorth, jwest));
                     DECR_AT (outboard, inorth, j);
-                    SET_DIRTY (BOARD(outboard, inorth, j));
                     DECR_AT (outboard, inorth, jeast);
-                    SET_DIRTY (BOARD(outboard, inorth, jeast));
                     DECR_AT (outboard, i, jwest);
-                    SET_DIRTY (BOARD(outboard, i, jwest));
                     DECR_AT (outboard, i, jeast);
-                    SET_DIRTY (BOARD(outboard, i, jeast));
                     DECR_AT (outboard, isouth, jwest);
-                    SET_DIRTY (BOARD(outboard, isouth, jwest));
                     DECR_AT (outboard, isouth, j);
-                    SET_DIRTY (BOARD(outboard, isouth, j));
                     DECR_AT (outboard, isouth, jeast);
-                    SET_DIRTY (BOARD(outboard, isouth, jeast));
-                    
-                    /*
+
+                   
                     SET_DIRTY (BOARD(outboard, inorth, jwest));
                     SET_DIRTY (BOARD(outboard, inorth, j));
                     SET_DIRTY (BOARD(outboard, inorth, jeast));
@@ -293,7 +278,7 @@ void * process (void *ptr) {
                     SET_DIRTY (BOARD(outboard, isouth, j));
                     SET_DIRTY (BOARD(outboard, isouth, jeast));
                     
-                    */
+                    
                 }
             }
 
