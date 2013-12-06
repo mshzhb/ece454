@@ -193,11 +193,10 @@ void * process (void *ptr) {
     int j;
     int LDA = p->LDA;
     
-    for (i = start_row; i < end_row; i++)
+    //read inboard in column-major 
+    for (j = 0; j < ncols; j++)
     {
-       
-
-        for (j = 0; j < ncols; j++)
+        for (i = start_row; i < end_row; i++)
         {
             char cell = BOARD(inboard,i,j);
             int alive = cell >> 4;
